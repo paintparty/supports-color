@@ -1,7 +1,8 @@
-{:paths ["src"]
+{:paths ["src" "bb"]
  :deps  {org.clojure/clojure {:mvn/version "1.12.5"}}
  :tasks
- {:requires         [[clojure.string :as str]]
+ {:requires         [[clojure.string :as str]
+                    [tasks.docs :as docs]]
 
   test              {:doc  "Run the test suite."
                      :task (clojure "-M:test" "-m" "cognitect.test-runner")}
@@ -57,27 +58,14 @@
   install           {:doc     "Install the JAR locally (build via ci)."
                      :depends [ci]
                      :task    (clojure "-T:build" "install")}
-  
-  git-deps-docs
-  {:doc      "Regenerate docs/git-deps.md from docs/git-deps.template.md and the latest tag"
-   :requires ([babashka.process :as p]
-              [clojure.string :as str])
-   ;; Per-library identity, substituted into the abstract template.
-   :project  "supports-color"
-   :artifact "io.github.paintparty/supports-color"
-   :url      "https://github.com/paintparty/supports-color"
-   :task
-   (let [tag  (-> (p/shell {:out :string} "git describe --tags --abbrev=0")
-                  :out str/trim)
-         sha  (-> (p/shell {:out :string} "git rev-list -n 1" tag)
-                  :out str/trim)
-         tmpl (slurp "docs/git-deps.template.md")]
-     (spit "docs/git-deps.md"
-           (-> tmpl
-               (str/replace "{{PROJECT}}"  (:project  (current-task)))
-               (str/replace "{{ARTIFACT}}" (:artifact (current-task)))
-               (str/replace "{{URL}}"      (:url      (current-task)))
-               (str/replace "{{TAG}}" (str "\"" tag "\""))
-               (str/replace "{{SHA}}" (str "\"" sha "\""))))
-     (println "Wrote docs for" tag sha))}}}
 
+  ;; Docs
+  ;; ---------------------------------------------------------------------------
+  docs:readme
+  {:doc  "Update the version numbers in README.md to match the latest tag (v0.2.0 -> 0.2.0). Leaves README.md alone if there are no tags yet."
+   :task (docs/update-readme)}
+
+  docs:git-deps
+  {:doc  "Regenerate docs/git-deps.md from the latest tag.
+          Uses HEAD if there are no tags yet."
+   :task (docs/write-git-deps)}}}

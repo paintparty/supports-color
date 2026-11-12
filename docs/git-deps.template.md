@@ -3,18 +3,18 @@
 This doc explains, by example, all the possible variations of the coordinate map
 you would use to specify {{PROJECT}} as a git dependency.
 
-`:git/sha` is always required. 
+`:git/sha` is always required.
 
 `:git/tag` is an optional readable label.
 
-`:git/url` is optional. It can be omitted in this case, because the library is named `{{ARTIFACT}}`, and the git URL is inferred.
+`:git/url` is optional. It can be omitted in this case, because the library is named `{{LIB}}`, and the git URL is inferred.
 
 <br>
 
 ```clojure
 ;; deps.edn
 
-{:deps {{{ARTIFACT}}
+{:deps {{{LIB}}
         {:git/tag {{TAG}}
          :git/sha {{SHA}}}}}
 ```
@@ -29,8 +29,8 @@ The coordinate map in the example above can take several forms, outlined in the 
 The `:git/tag` entry documents which release the SHA corresponds to.
 
 ```clojure
-{{ARTIFACT}} 
-{:git/tag {{TAG}} 
+{{LIB}}
+{:git/tag {{TAG}}
  :git/sha {{SHA}}}
 ```
 
@@ -39,7 +39,7 @@ The `:git/tag` entry documents which release the SHA corresponds to.
 ## SHA only (URL inferred)
 
 ```clojure
-{{ARTIFACT}} {:git/sha {{SHA}}}
+{{LIB}} {:git/sha {{SHA}}}
 ```
 
 <br>
@@ -49,8 +49,8 @@ The `:git/tag` entry documents which release the SHA corresponds to.
 Use this if you want the URL spelled out, or for SSH/private access.
 
 ```clojure
-{{ARTIFACT}}
-{:git/url "{{URL}}"
+{{LIB}}
+{:git/url {{URL}}
  :git/sha {{SHA}}}
 ```
 
@@ -59,8 +59,8 @@ Use this if you want the URL spelled out, or for SSH/private access.
 ## Explicit URL + tag + SHA
 
 ```clojure
-{{ARTIFACT}}
-{:git/url "{{URL}}"
+{{LIB}}
+{:git/url {{URL}}
  :git/tag {{TAG}}
  :git/sha {{SHA}}}
 ```
@@ -73,7 +73,7 @@ If you'd rather not copy the SHA by hand, write the dependency with just
 the `:git/tag` entry :
 
 ```clojure
-{{ARTIFACT}} {:git/tag {{TAG}}}
+{{LIB}} {:git/tag {{TAG}}}
 ```
 
 then run:
