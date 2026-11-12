@@ -1,0 +1,83 @@
+{:paths ["src"]
+ :deps  {org.clojure/clojure {:mvn/version "1.12.5"}}
+ :tasks
+ {:requires         [[clojure.string :as str]]
+
+  test              {:doc  "Run the test suite."
+                     :task (clojure "-M:test" "-m" "cognitect.test-runner")}
+
+  test:bb           {:doc         "Run the test suite using Babashka to check compatibility."
+                     :extra-paths ["test"]
+                     :extra-deps  {io.github.cognitect-labs/test-runner {:git/tag "v0.5.1"
+                                                                         :git/sha "dfb30dd"}
+                                   org.clojure/test.check               {:mvn/version "1.1.3"}}
+                     :task        (exec 'cognitect.test-runner.api/test)}
+
+  test:jolt         {:doc  "Run tests in jolt"
+                     :task (shell "jolt" "-M:jolt-test")}
+
+  test:jolt-basic   {:doc  "Run only the runtime-agnostic detection tests under jolt (env/flag/CI/TTY precedence and the pure parsers). Skips the pty/termios/subprocess suites, which need a native terminal harness jolt can't drive."
+                     :task (shell "jolt" "-M:jolt-test"
+                                  "-n" "supports-color.core-test"
+                                  "-n" "supports-color.detect-level-test"
+                                  "-n" "supports-color.detect-property-test"
+                                  "-n" "supports-color.osc11-color-parser-test")}
+
+  test:node         {:doc  "Run the ClojureScript/Node test suite under nbb. Requires Node.js and npx (fetches nbb on first run)."
+                     :task (shell "npx" "--yes" "nbb"
+                                  "-cp" "src:test:test-node" "test-node/runner.cljs")}
+
+  test:node-pty     {:doc         "Run the pty-driven Node query tests (core.cljs) through the harness. Requires node + nbb + python3 + a pty (a pseudo-terminal); skips gracefully if those aren't available."
+                     :extra-paths ["test"]
+                     :extra-deps  {io.github.cognitect-labs/test-runner {:git/tag "v0.5.1"
+                                                                         :git/sha "dfb30dd"}
+                                   org.clojure/test.check               {:mvn/version "1.1.3"}}
+                     :exec-args   {:nses [supports-color.node-query-test]}
+                     :task        (exec 'cognitect.test-runner.api/test)}
+
+  test:all          {:doc     "Run the test suite with Clojure, Babashka, Jolt, and Node (nbb)."
+                     :depends [test test:bb test:jolt test:node]}
+
+  test:all+node-pty {:doc     "Run test:all plus the pty-driven Node query tests."
+                     :depends [test:all test:node-pty]}
+
+  test:compat       {:doc  "Run the JVM test suite against the oldest supported Clojure versions (1.10, 1.11) to verify the compatibility floor. Uses the JVM clojure CLI (not bb, which bundles its own Clojure). 1.10 is the floor: the cognitect test-runner needs `requiring-resolve` (1.10+), though the library itself loads on 1.9. Stops at the first failing version."
+                     :task (doseq [v ["1.10" "1.11"]]
+                             (println (str "== Clojure " v " =="))
+                             (shell "clojure" "-Sforce" (str "-M:" v ":test") "-m" "cognitect.test-runner"))}
+
+  ci                {:doc     "Run the CI pipeline of tests and build the JAR."
+                     :depends [test:all] ; or just test
+                     :task    (clojure "-T:build" "jar")}
+
+  ci:deploy         {:doc     "Run the CI pipeline and deploy the JAR."
+                     :depends [ci]
+                     :task    (clojure "-T:build" "deploy")}
+
+  install           {:doc     "Install the JAR locally (build via ci)."
+                     :depends [ci]
+                     :task    (clojure "-T:build" "install")}
+  
+  git-deps-docs
+  {:doc      "Regenerate docs/git-deps.md from docs/git-deps.template.md and the latest tag"
+   :requires ([babashka.process :as p]
+              [clojure.string :as str])
+   ;; Per-library identity, substituted into the abstract template.
+   :project  "supports-color"
+   :artifact "io.github.paintparty/supports-color"
+   :url      "https://github.com/paintparty/supports-color"
+   :task
+   (let [tag  (-> (p/shell {:out :string} "git describe --tags --abbrev=0")
+                  :out str/trim)
+         sha  (-> (p/shell {:out :string} "git rev-list -n 1" tag)
+                  :out str/trim)
+         tmpl (slurp "docs/git-deps.template.md")]
+     (spit "docs/git-deps.md"
+           (-> tmpl
+               (str/replace "{{PROJECT}}"  (:project  (current-task)))
+               (str/replace "{{ARTIFACT}}" (:artifact (current-task)))
+               (str/replace "{{URL}}"      (:url      (current-task)))
+               (str/replace "{{TAG}}" (str "\"" tag "\""))
+               (str/replace "{{SHA}}" (str "\"" sha "\""))))
+     (println "Wrote docs for" tag sha))}}}
+

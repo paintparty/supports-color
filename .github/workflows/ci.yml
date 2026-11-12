@@ -1,0 +1,193 @@
+# What is this ci.yml?
+
+# It's a "recipe" that tells GitHub: "Every time someone pushes code,
+# automatically run these checks for me." Basically, a robot assistant
+# that pokes at your code so you don't have to do it manually every time.
+
+
+# Where does it run?
+
+# Only on GitHub's servers (github.com), inside temporary throwaway instances 
+# GitHub spins up called "runners." It does not run locally. It only kicks off
+# when something happens on GitHub, specifically from the `on` entry:
+# - Someone pushes to the main branch
+# - Someone opens or updates a pull request
+
+
+# What does it do?
+
+# The jobs in the `jobs` entry. Each job checks out your code (actions/checkout),
+# installs the tools it needs, restores a cache of dependencies so it's faster
+# next time, then runs the actual test/build command.
+
+
+# Why does it matter?
+
+# It is a safety net. If you push a commit that breaks something on Windows
+# but you only tested on your Mac, this workflow catches it and shows a red "X" 
+# on GitHub before it causes trouble. It's the same idea as running your tests 
+# yourself, just automated and covering more environments than you'd bother 
+# checking manually. 
+
+name: CI
+
+on:
+  # Remove this `push` trigger to only run on PRs.
+  # You typically want main protected, as it is the "source of truth" branch.
+
+  # To only run manually, remove `push:` and `pull_request:` and just use 
+  # `workflow_dispatch:`, which adds a button on GitHub's Actions tab you click
+  # to run it whenever you want.
+
+  # To skip CI for a specific commit there is no config needed, just add
+  # [skip ci] anywhere in your commit message and GitHub Actions won't run for
+  # that push.
+
+  # To skip CI for a specific commit there is no config needed, just add
+  # [skip ci] anywhere in your commit message and GitHub Actions won't run for
+  # that push.
+
+  # To only run on certain file changes, add a `paths:` or `paths-ignore:`
+  # filter so it skips if you only touched `README.md`, for example. You have to
+  # pick one of these.
+
+  push:
+    branches: [main]
+    paths-ignore:
+      - '**/*.md'
+      - 'doc/**'
+  pull_request:
+    paths-ignore:
+      - '**/*.md'
+      - 'doc/**'
+
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # JVM suite across OS x JDK. Spins up 5 different combos of operating system
+  # (Ubuntu, Mac, Windows) x Java version (17, 21, 24), installs Clojure, and
+  # runs your test suite with `clojure -M:test -m cognitect.test-runner`
+  # The pty harness (Unix only) runs on ubuntu/macos and skips itself on Windows;
+  # the detect + batch tests run everywhere.
+  jvm:
+    name: JVM (JDK ${{ matrix.jdk }}, ${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        jdk: ['21']
+        # Cross-OS is checked on JDK 21; the JDK spread (floor + the DEC-001
+        # System/console window) is checked on ubuntu to keep the matrix small.
+        include:
+          - os: ubuntu-latest
+            jdk: '17'
+          - os: ubuntu-latest
+            jdk: '24'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: ${{ matrix.jdk }}
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - uses: DeLaGuardo/setup-clojure@13
+        with:
+          cli: latest
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.m2/repository
+            ~/.gitlibs
+            .cpcache
+          key: ${{ runner.os }}-deps-${{ hashFiles('deps.edn', 'bb.edn') }}
+          restore-keys: ${{ runner.os }}-deps-
+      - name: Run tests (JVM)
+        run: clojure -M:test -m cognitect.test-runner
+
+  # Babashka runtime. bb is native (its own JDK), so JDK doesn't vary here; what
+  # this catches is Clojure/JS-interop and bb-loadability bugs across OSes.
+  babashka:
+    name: Babashka (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - uses: DeLaGuardo/setup-clojure@13
+        with:
+          bb: latest
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.m2/repository
+            ~/.gitlibs
+          key: ${{ runner.os }}-bb-${{ hashFiles('bb.edn', 'deps.edn') }}
+          restore-keys: ${{ runner.os }}-bb-
+      - name: Run tests (Babashka)
+        run: bb test:bb
+
+  # ClojureScript/Node runtime via nbb. Unix only: the terminal queries and the
+  # pty scenario runner are Unix-only, and nbb's classpath separator is ':';
+  # Windows detection is already covered by the jvm and babashka jobs.
+  node:
+    name: Node (nbb, ${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - uses: DeLaGuardo/setup-clojure@13
+        with:
+          bb: latest
+      - name: Run tests (Node / nbb)
+        run: bb test:node
+      - name: Run pty-driven Node query tests
+        run: bb test:node-pty
+
+  # This is to make sure the project still packages into a .jar file correctly.
+  # Basically, a "does it even build?" smoke test.
+  build:
+    name: Build jar (JDK 21, ubuntu)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: DeLaGuardo/setup-clojure@13
+        with:
+          cli: latest
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.m2/repository
+            ~/.gitlibs
+            .cpcache
+          key: ubuntu-build-${{ hashFiles('deps.edn') }}
+          restore-keys: ubuntu-build-
+      - name: Build jar
+        run: clojure -T:build jar
