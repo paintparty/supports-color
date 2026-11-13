@@ -27,6 +27,13 @@ The `color-supports` API supplies 3 data points:
 {:polarity         "dark"
  :background-color {:r 33 :g 22 :b 12}
  ...}
+
+
+;; Polarity only. No terminal query when CLITHEME is set.
+(sc/theme)
+=> 
+{:polarity "dark"
+ ...}
 ```
 
 <br>

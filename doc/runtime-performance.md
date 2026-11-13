@@ -1,16 +1,15 @@
-# Runtime Performance and Caching
+# Runtime performance and caching
 
-The recommended integration is to avoid detection at namespace load. Cache
-color support lazily or during explicit application initialization, and query
-the background only if the consuming ANSI SGR library actually needs it. The
-consumer should expose a manual refresh or override interface.
+This doc lists what each supports-color call costs in processes and blocking time, and shows how a consuming library, such as an ANSI SGR styling library, should cache the results. supports-color caches nothing itself, so every call does its work again.
+
+The recommended integration is to avoid detection at namespace load. Detect lazily, on the first formatting request, or during explicit application initialization. Call `theme` or `background` only if the consumer needs the background. The consumer should expose a manual refresh or override interface.
 
 ```text
-                 ANSI-SGR RUNTIME PERFORMANCE
+                 CONSUMER RUNTIME PERFORMANCE
 
  Namespace load
       |
-      +--> create state atom only
+      +--> create state atom or delay only
            no environment scan
            no processes
            no terminal mutation
@@ -20,14 +19,14 @@ consumer should expose a manual refresh or override interface.
       +--> Need color profile?
       |       |
       |       +-- cached --> atom deref + map lookup
-      |       |             effectively negligible
       |       |
       |       `-- missing --> profile
-      |                      environment + argv + TTY checks
-      |                      0 child processes
-      |                      normally very cheap
+      |                      env vars, argv, TTY checks
+      |                      JVM, Babashka, Jolt: up to 3 `test -t` processes,
+      |                        once per descriptor per process
+      |                      Node: 0 processes
       |
-      `--> Need background awareness?
+      `--> Need dark or light?
               |
               +-- no --> finished
               |
@@ -35,67 +34,59 @@ consumer should expose a manual refresh or override interface.
                            |
                            +-- yes --> atom lookup
                            |
-                           `-- no --> background chain
+                           `-- no --> theme
                                       |
-                                      +-- CLITHEME set
-                                      |      0 child processes
+                                      +-- CLITHEME dark or light
+                                      |      0 processes, no query
                                       |
-                                      `-- CSI ?996 query
-                                             3 x stty processes
-                                             terminal round trip
-                                             up to timeout
-                                                  |
-                                                  +-- success --> finished
-                                                  |
-                                                  `-- unsupported
-                                                        |
-                                                        `-- OSC 11 query
-                                                            3 more stty processes
-                                                            terminal round trip
-                                                            up to timeout
+                                      `-- one combined terminal query
+                                             (CSI ?996, OSC 11, DA1)
+                                             3 stty processes
+                                             + 1 ps where there is no /proc
+                                             ends at the DA1 reply,
+                                             or at :timeout-ms
 ```
 
-## Relative Cost
+## Relative cost
 
-| Operation | Process launches | Intended blocking time |
-|---|---:|---:|
+| Operation | Process launches | Blocking time |
+|---|---:|---|
 | Cached atom lookup | 0 | Negligible |
-| `profile` | 0 | Normally very cheap; not benchmarked |
-| Background via `CLITHEME` | 0 | Negligible |
-| CSI succeeds | 3 | Process startup plus terminal response |
-| `query-background-color` via OSC | 3 | Process startup plus up to `timeout-ms` |
-| CSI misses and OSC follows | 6 | Process startup plus up to `2 * timeout-ms` |
+| `profile` on Node | 0 | Negligible |
+| `profile` on the JVM, Babashka, Jolt | Up to 3, the first time only | Process startup |
+| `theme` with `CLITHEME` dark or light | 0 | Negligible |
+| `theme` or `background`, terminal answers | 3, or 4 without `/proc` | Process startup plus one terminal round trip |
+| `theme` or `background`, terminal answers nothing | 3, or 4 without `/proc` | Process startup plus `:timeout-ms` |
+| `theme` or `background`, query skipped | 0 | Negligible |
 
-With the default 100 ms timeout, the intended worst path is approximately:
+`background` always sends the query when it can, because it reads `:background-color` from the reply, even when `CLITHEME` decides the polarity. Use `theme` when you need only dark or light.
 
-```text
-6 process startups + 100 ms CSI wait + 100 ms OSC wait
-```
+The query is skipped on Windows, when neither stdout nor stderr is a terminal, when `TERM` is unset or `dumb`, and when `SUPPORTS_COLOR_NO_QUERY` is set. [More details about how supports-color works](more-details.md) lists every case.
 
-The implementation does not currently provide a hard upper bound because the
-`stty` calls use unbounded `waitFor` operations.
+The default `:timeout-ms` is 2000. The read ends as soon as the DA1 reply arrives, which takes a few milliseconds on a local terminal, so the full timeout only passes on a terminal that answers nothing. If part of a reply has arrived when the timeout runs out, the read waits one more `:timeout-ms`. The `stty` and `ps` steps have their own budgets of up to 2 s each, and the restore up to 3 s, so a call always ends.
 
-Each terminal query launches three processes:
+Each query launches these processes:
 
 ```text
-stty -g              save settings
-stty raw -echo       enter query mode
-stty <saved-state>   restore settings
+ps -o stat= -p <pid>               foreground check, only where there is no /proc
+stty -g                            save settings
+stty -icanon -echo min 1 time 0    enter query mode
+stty <saved settings>              restore settings
 ```
 
 This work should not happen per styled string, log event, or render frame.
 
-## Ownership Seam
+## Ownership
 
-The clean ownership seam is:
+supports-color and the consumer split the work like this:
 
 ```text
-supports-color module
+supports-color
     owns discovery and terminal interaction
              |
-             | returns immutable capability snapshot
+             | returns an immutable map
              v
-ansi-sgr module
+consumer (an ANSI SGR library, for example)
     owns caching, overrides, and formatting policy
 ```
 
@@ -103,24 +94,24 @@ A reasonable consumer-side state shape would be:
 
 ```clojure
 (defonce capabilities
-  (atom {:profiles   {}       ; keyed by :stdout / :stderr
-         :background nil      ; detected background snapshot
-         :overrides  {}}))
+  (atom {:profiles  {}     ; keyed by :stdout / :stderr
+         :theme     nil    ; result of theme or background
+         :overrides {}}))
 ```
 
-Profile and background state should remain separate:
+Profile and theme state should remain separate:
 
 ```text
 :profiles
   Stable for most of the process lifetime.
   Detect once per output stream.
 
-:background
+:theme
   Can change when the user switches terminal themes.
-  Detect only when background-aware styling is requested.
+  Detect only when theme-aware styling is requested.
 ```
 
-The ANSI SGR interface could conceptually provide:
+The consumer's interface could provide:
 
 ```clojure
 (capabilities)              ; cheap cached read
@@ -130,27 +121,23 @@ The ANSI SGR interface could conceptually provide:
 (clear-capabilities!)       ; mainly useful for REPLs and tests
 ```
 
-Detection should not run inside an atom `swap!` function because `swap!` may
-retry and repeat the terminal side effect. Serialize detection with a lock, run
-it once, and then update the atom.
+Detection should not run inside an atom `swap!` function, because `swap!` may retry and repeat the terminal query. Run it once, under a lock or in a `delay`, and then update the atom.
 
-## Why Not Detect at Library Load?
+## Why not detect at library load?
 
 Namespace-load detection creates several undesirable behaviors:
 
-- Requiring the ANSI SGR library may unexpectedly launch processes and mutate
-  `/dev/tty`.
+- Requiring the library may unexpectedly launch processes and change the settings of `/dev/tty`.
 - It adds startup latency even when the caller never emits ANSI.
-- It can also happen during tests, AOT compilation, build tooling, and REPL
-  reloads.
+- It also happens during tests, AOT compilation, build tooling, and REPL reloads.
 - The caller may not have configured overrides yet.
 - The eventual output destination might not be known yet.
-- A TUI may already own raw terminal mode, creating interference.
+- A TUI may already hold the terminal in raw mode.
+- Keys the user types during the query are consumed.
 
-A `defonce` atom at namespace load is fine. Filling it should be lazy or
-explicit.
+A `defonce` atom or a `delay` at namespace load is fine. Filling it should be lazy or explicit.
 
-## Practical Policies
+## Practical policies
 
 For an ordinary CLI:
 
@@ -159,13 +146,13 @@ Application startup
     |
     +-- profile once
     |
-    `-- query background once only if adaptive colors need it
+    `-- theme once, only if adaptive colors need it
 ```
 
 For a long-running TUI:
 
 ```text
-Before input loop starts
+Before the input loop starts
     |
     `-- initial detection
 
@@ -175,19 +162,15 @@ During rendering
 
 Theme changed / user requests refresh
     |
-    `-- serialized background refresh
+    `-- serialized theme refresh
 ```
 
-For a logging or formatting library that only needs to decide whether ANSI is
-supported, call only `profile`. Do not call the combined `detect`,
-because `detect` always enters the background chain.
+Which call to cache:
 
-If the consumer needs only the background mood (dark versus light), cache the
-result of `background`. If it needs the actual RGB value, use
-`query-background-color`. Manual refresh is sufficient by default; automatic
-polling would repeatedly launch processes, manipulate terminal mode, and
-potentially consume input.
+- Only deciding whether to emit ANSI, and at which level: call only `profile`.
+- Needs dark or light: cache the result of `theme`.
+- Needs the actual background RGB: cache the result of `background`.
 
-In short: one cached profile detection is cheap; one background query is
-tolerable during controlled initialization; repeated background detection has
-material runtime and terminal-safety costs.
+Manual refresh is enough by default. Automatic polling would repeatedly launch processes, change the terminal mode, and consume typed input.
+
+In short: one cached `profile` is cheap, one `theme` or `background` query is fine during controlled initialization, and repeated queries have real runtime and terminal-safety costs.

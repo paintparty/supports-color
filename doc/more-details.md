@@ -72,7 +72,7 @@ On the JVM the arguments come from `*command-line-args*`, which only `clojure.ma
 
 - As an end user: set `SUPPORTS_COLOR_NO_QUERY=1`. Polarity then comes only from `CLITHEME` and `COLORFGBG`, and `:background-color` is `nil`.
 - As a program author: pass `{:context {:runtime {:tty {:stdout false :stderr false}}}}`, or call only `profile`.
-- `CLITHEME=dark` or `light` fixes the polarity, but the query still runs to fill `:background-color`.
+- `CLITHEME=dark` or `light` fixes the polarity. `background` still runs the query to fill `:background-color`. `theme` sends no query.
 
 ## When the query runs
 

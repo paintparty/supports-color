@@ -596,6 +596,10 @@
   "Detect the terminal's background polarity and color (:polarity \"dark\"/\"light\"/nil, :background-color {:r :g :b} or nil)."
   c/background)
 
+(def theme
+  "Detect the terminal's background polarity only (:polarity \"dark\"/\"light\"/nil). Sends no terminal query when CLITHEME is dark or light."
+  c/theme)
+
 (def get-env
   "Reads env var k, consulting mock-env first if bound."
   c/get-env)

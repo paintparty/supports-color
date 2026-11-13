@@ -255,48 +255,32 @@
    ["COLOR_BACKGROUND"
     {:optional true
      :adoption :low
-     :desc "Ghostty is a modern terminal emulator made in 2024. It exports its
-            resolved background color as a hex string, e.g. \"#303446\", so
-            child processes can read it directly rather than querying the
-            terminal over OSC escapes."
-     :links [{:url "ghostty.org/docs/config/reference"
-              :desc "Ghostty color metadata config reference"}
-             {:url "man.archlinux.org/man/ghostty.1"
-              :desc "Ghostty man page"}]}
+     :desc "A background color as a hex string, e.g. \"#303446\". No known
+            terminal or standard sets it. supports-color returns it in :env
+            and does not act on it."}
     :string]
 
    ["COLOR_CONTRAST"
     {:optional true
      :adoption :low
-     :desc "Ghostty-derived contrast preference, part of the same color-metadata
-            family as COLOR_BACKGROUND/COLOR_FOREGROUND/COLOR_THEME."
-     :links [{:url "ghostty.org/docs/config/reference"
-              :desc "Ghostty color metadata config reference"}
-             {:url "man.archlinux.org/man/ghostty.1"
-              :desc "Ghostty man page"}]}
+     :desc "A contrast preference. No known terminal or standard sets it.
+            supports-color returns it in :env and does not act on it."}
     [:enum "high" "medium" "low"]]
 
    ["COLOR_FOREGROUND"
     {:optional true
      :adoption :low
-     :desc "Ghostty's resolved foreground color as a hex string, e.g.
-            \"#c6d0f5\", exported for the same reason as COLOR_BACKGROUND."
-     :links [{:url "ghostty.org/docs/config/reference"
-              :desc "Ghostty color metadata config reference"}
-             {:url "man.archlinux.org/man/ghostty.1"
-              :desc "Ghostty man page"}]}
+     :desc "A foreground color as a hex string, e.g. \"#c6d0f5\". No known
+            terminal or standard sets it. supports-color returns it in :env
+            and does not act on it."}
     :string]
 
    ["COLOR_THEME"
     {:optional true
      :adoption :low
-     :desc "Ghostty's active light/dark scheme name, exported alongside its
-            other color-metadata variables so a child process can adapt without
-            querying the terminal."
-     :links [{:url "ghostty.org/docs/config/reference"
-              :desc "Ghostty color metadata config reference"}
-             {:url "man.archlinux.org/man/ghostty.1"
-              :desc "Ghostty man page"}]}
+     :desc "A light/dark preference. No known terminal or standard sets it.
+            supports-color returns it in :env and does not act on it. CLITHEME
+            is the published proposal for this."}
     [:enum "dark" "light"]]
 
    ["FORCE_COLOR"
@@ -1512,6 +1496,34 @@
       (= "dumb" term)                                          "TERM=dumb"
       :else                                                    nil)))
 
+(defn- detect-background
+  "Shared body of background and theme. When theme-only? is true, a CLITHEME of
+   dark or light skips the terminal query, and :background-color is left out of
+   the result."
+  [{debug? :debug
+    :keys  [timeout-ms context]
+    :or    {timeout-ms default-timeout-ms}
+    :as    opts}
+   theme-only?]
+  (let [context    (normalize-context context)
+        ;; An explicit nil (a config lookup that missed) means "not given".
+        timeout-ms (sanitize-timeout-ms (if (nil? timeout-ms) default-timeout-ms timeout-ms))
+        mock-env   (:env context)
+        skip       (or (when (and theme-only? (some? (clitheme-dark? mock-env)))
+                         "CLITHEME is set")
+                       (query-skip-reason context))
+        ;; One combined terminal query (CSI ?996n, OSC 11, DA1) in one window.
+        raw        (when-not skip ((:query-terminal @pf) timeout-ms))
+        chain      (run-dark-light-chain timeout-ms debug? context raw skip)
+        ;; The colour comes from the same reply buffer whichever step decided
+        ;; the polarity (CLITHEME and CSI ?996 included), so no second query.
+        rgb        (parse-osc-color-response raw)
+        chain      (assoc chain
+                          :background-color rgb
+                          :osc11-supported (some? rgb))]
+    (merge (collect-context opts mock-env context)
+           (cond-> chain theme-only? (dissoc :background-color)))))
+
 (defn background
   "Detect everything about the terminal's background: its dark/light polarity
    and its literal color, in one call. This is the terminal-touching companion
@@ -1552,22 +1564,14 @@
                                 :platform}. An injected non-terminal :tty skips
                                 the CSI ?996 and OSC 11 queries."
   ([] (background {}))
-  ([{debug? :debug
-     :keys  [timeout-ms context]
-     :or    {timeout-ms default-timeout-ms}
-     :as    opts}]
-   (let [context    (normalize-context context)
-         ;; An explicit nil (a config lookup that missed) means "not given".
-         timeout-ms (sanitize-timeout-ms (if (nil? timeout-ms) default-timeout-ms timeout-ms))
-         mock-env   (:env context)
-         skip       (query-skip-reason context)
-         ;; One combined terminal query (CSI ?996n, OSC 11, DA1) in one window.
-         raw        (when-not skip ((:query-terminal @pf) timeout-ms))
-         chain      (run-dark-light-chain timeout-ms debug? context raw skip)
-         ;; The colour comes from the same reply buffer whichever step decided
-         ;; the polarity (CLITHEME and CSI ?996 included), so no second query.
-         rgb        (parse-osc-color-response raw)
-         chain      (assoc chain
-                           :background-color rgb
-                           :osc11-supported (some? rgb))]
-     (merge (collect-context opts mock-env context) chain))))
+  ([opts] (detect-background opts false)))
+
+(defn theme
+  "Detect the terminal's dark/light polarity only. Same detection chain and
+   options as background, but when CLITHEME is \"dark\" or \"light\" no terminal
+   query is sent, so a user who sets CLITHEME pays no query cost. Use this when
+   you need polarity and not the literal background color.
+
+   Returns the same map as background without :background-color."
+  ([] (theme {}))
+  ([opts] (detect-background opts true)))

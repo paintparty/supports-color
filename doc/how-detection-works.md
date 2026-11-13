@@ -20,6 +20,8 @@ Background (`supports-color.core/background`) tries, in order:
 3. `OSC 11` terminal query - actual background RGB, converted to luma.
 4. `COLORFGBG` env var - coarse fallback.
 
+`supports-color.core/theme` runs the same chain. When step 1 decides the polarity, it sends no terminal query.
+
 Steps 2 and 3 use the same terminal query. `background` sends three queries together, in one write:
 
 - `CSI ? 996 n` asks for the theme, dark or light.

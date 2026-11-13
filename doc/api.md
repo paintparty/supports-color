@@ -81,9 +81,22 @@ function. If you need both in a single map, you can just merge them:
 
 <br />
 
+### `supports-color.core/theme`
+
+`supports-color.core/theme` returns the same map as `background`, without `:background-color`. Use it when you need the polarity and not the color.
+
+It runs the same chain as `background`, with one difference: when `CLITHEME` is `dark` or `light`, it sends no terminal query.
+
+```clojure
+(:polarity (sc/theme))
+=> "dark"
+```
+
+<br />
+
 ### Options
 
-Both `supports-color/profile` and `supports-color/background` take an (optional) options map:
+`supports-color/profile`, `supports-color/background`, and `supports-color/theme` take an (optional) options map:
 
 - `:debug`<br>
   When `true`, traces the detection chain to stdout as it runs.
