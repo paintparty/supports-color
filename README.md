@@ -50,7 +50,7 @@ Comparison with other libs from other languages that you may be familiar with:
 |  | this library | [chalk/supports-color↗](https://github.com/chalk/supports-color) | [colorprofile↗](https://github.com/charmbracelet/colorprofile) |
 |---|---|---|---|
 | Language | Clojure dialects | JavaScript, Node | Go |
-| Color support level (16, 256, truecolor) | ✓ | ✓ | ✓ |
+| Color level detection (16, 256, truecolor) | ✓ | ✓ | ✓ |
 | Respects `NO_COLOR` | ✓ | ✕ | ✓ |
 | Terminal background color query via `OSC 11` | ✓ | ✕ | ✕ |
 | Terminal theme query via `CSI ? 996 n`| ✓ | ✕ | ✕ |

@@ -51,9 +51,16 @@
                      :depends [test:all] ; or just test
                      :task    (clojure "-T:build" "jar")}
 
-  ci:deploy         {:doc     "Run the CI pipeline and deploy the JAR."
-                     :depends [ci]
-                     :task    (clojure "-T:build" "deploy")}
+  ci:deploy         {:doc     "Run the tests, then build and deploy the JAR to Clojars."
+                     :depends [test:all]
+                     :task    (run 'deploy)}
+
+  deploy            {:doc      "Build the JAR and deploy it to Clojars. Requires CLOJARS_USERNAME and CLOJARS_PASSWORD (a deploy token) in the environment, or a with-clojars-creds command on your PATH that supplies them."
+                     :requires ([babashka.fs :as fs])
+                     :task     (do (clojure "-T:build" "jar")
+                                   (if (fs/which "with-clojars-creds")
+                                     (shell "with-clojars-creds" "clojure" "-T:build" "deploy")
+                                     (clojure "-T:build" "deploy")))}
 
   install           {:doc     "Install the JAR locally (build via ci)."
                      :depends [ci]
