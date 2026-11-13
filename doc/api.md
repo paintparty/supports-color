@@ -94,6 +94,19 @@ It runs the same chain as `background`, with one difference: when `CLITHEME` is 
 
 <br />
 
+In JavaScript runtimes without Node APIs, such as Cloudflare Workers without `nodejs_compat`, `profile` returns level 0 and `:runtime :host :js`, and the polarity is `nil`.
+
+
+### In browsers
+
+In a browser there is no environment, terminal, or command line to read.
+
+- `profile` returns level 3 (`:truecolor`), because browser dev consoles render truecolor, and `:runtime :host :browser`, so a styling library knows to convert to the `%c`-based CSS syntax.
+- `theme` and `background` get the polarity from `prefers-color-scheme`, with `:detection-method :prefers-color-scheme`. That is the operating system's or browser's preference. A page cannot read the DevTools theme setting, which follows the system by default. `:background-color` is always `nil`.
+- Nothing queries a terminal.
+
+<br />
+
 ### Options
 
 `supports-color/profile`, `supports-color/background`, and `supports-color/theme` take an (optional) options map:

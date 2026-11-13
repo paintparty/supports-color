@@ -24,9 +24,23 @@
                                   "-n" "supports-color.detect-property-test"
                                   "-n" "supports-color.osc11-color-parser-test")}
 
-  test:node         {:doc  "Run the ClojureScript/Node test suite under nbb. Requires Node.js and npx (fetches nbb on first run)."
+  test:node         {:doc  "Run the ClojureScript/Node test suite under nbb. Requires Node.js and npx (fetches nbb on first run). nbb reads js-runtime-detection from nbb.edn."
                      :task (shell "npx" "--yes" "nbb"
                                   "-cp" "src:test:test-node" "test-node/runner.cljs")}
+
+  test:browser      {:doc  "Compile a probe with :advanced and no :target, then run it with browser globals and no Node globals, once per prefers-color-scheme value. Requires Node.js."
+                     :task (let [out "target/browser-probe"
+                                 run (fn [scheme polarity method]
+                                       (shell "node" "test-browser/run.js" (str out "/main.js") scheme
+                                              (pr-str {:level               3
+                                                       :host                :browser
+                                                       :polarity            polarity
+                                                       :method              method
+                                                       :background-polarity polarity})))]
+                             (clojure "-M:cljs-latest" "script/build_browser.clj" out)
+                             (run "dark" "dark" :prefers-color-scheme)
+                             (run "light" "light" :prefers-color-scheme)
+                             (run "none" nil :none))}
 
   test:node-pty     {:doc         "Run the pty-driven Node query tests (core.cljs) through the harness. Requires node + nbb + python3 + a pty (a pseudo-terminal); skips gracefully if those aren't available."
                      :extra-paths ["test"]
@@ -36,8 +50,8 @@
                      :exec-args   {:nses [supports-color.node-query-test]}
                      :task        (exec 'cognitect.test-runner.api/test)}
 
-  test:all          {:doc     "Run the test suite with Clojure, Babashka, Jolt, and Node (nbb)."
-                     :depends [test test:bb test:jolt test:node]}
+  test:all          {:doc     "Run the test suite with Clojure, Babashka, Jolt, Node (nbb), and a browser probe."
+                     :depends [test test:bb test:jolt test:node test:browser]}
 
   test:all+node-pty {:doc     "Run test:all plus the pty-driven Node query tests."
                      :depends [test:all test:node-pty]}

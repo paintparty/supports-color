@@ -1,0 +1,1 @@
+{:deps {io.github.paintparty/js-runtime-detection {:mvn/version "0.1.0-SNAPSHOT"}}}

@@ -397,7 +397,7 @@
    ;; -- from background ---------------------------------------------------
    [:polarity         {:optional true} [:maybe [:enum "dark" "light"]]]
    [:background-color {:optional true} [:maybe [:map [:r :int] [:g :int] [:b :int]]]]
-   [:detection-method {:optional true} [:enum :clitheme :csi996 :osc11 :colorfgbg :none]]
+   [:detection-method {:optional true} [:enum :clitheme :csi996 :osc11 :colorfgbg :prefers-color-scheme :none]]
    [:clitheme         {:optional true} [:maybe [:enum :dark :light]]]
    [:csi996-result    {:optional true} [:maybe [:enum :dark :light]]]
    [:csi996-supported {:optional true} :boolean]
@@ -423,7 +423,12 @@
    functions used by the shared detection logic. Replaces any previously
    registered adapter, for the whole process, and returns impl. supports-color.core
    calls it on load, and the tests call it to fake a platform. Internal, can change
-   in any release."
+   in any release.
+
+   Optional keys: :host, reported as :runtime :host in place of :jvm or :js
+   (:browser makes profile return level 3 and skips the terminal query), and
+   :prefers-dark, a fn returning true, false, or nil that background and theme
+   use for the polarity when :host is :browser."
   [impl]
   (reset! pf impl))
 
@@ -459,6 +464,11 @@
 
 (defn- stdin-tty? []
   ((:stdin-tty @pf)))
+
+(defn- host
+  "The adapter's :host, or :jvm or :js by platform."
+  []
+  (or (:host @pf) #?(:clj :jvm :cljs :js)))
 
 
 (defn- platform []
@@ -870,7 +880,7 @@
   [{sniff-flags? :sniff-flags :or {sniff-flags? true}}
    mock-env context]
   (let [flag-level (when sniff-flags? (sniff-flag-force-color context))]
-    {:host  #?(:clj :jvm :cljs :js)
+    {:host  (host)
      :os    {:name     (non-blank (os-name* context))
              :version  (non-blank (os-release* context))
              :platform (platform* context)}
@@ -935,6 +945,12 @@
     (let [level
           (::level
            (or
+            ;; 0. A browser dev console renders truecolor. There is no env,
+            ;; argv, or terminal to read.
+            (if (= :browser (host))
+              (hit "browser dev console" 3)
+              (skip "not a browser"))
+
             ;; 1. Command-line color flags (--color, --no-color, --color=256, ...).
             ;; no-color.org: per-instance command-line arguments override NO_COLOR.
             (if (some? flag-fc)
@@ -1505,6 +1521,23 @@
     :or    {timeout-ms default-timeout-ms}
     :as    opts}
    theme-only?]
+  (if (= :browser (host))
+    ;; A browser has no terminal to query. Its color scheme preference is the
+    ;; only signal.
+    (let [context  (normalize-context context)
+          polarity (->polarity (some-> (:prefers-dark @pf) (apply [])))]
+      (when debug?
+        (dbg-header 0 "background detection")
+        (dbg 0 "browser, prefers-color-scheme → " (pr-str polarity)))
+      (merge (collect-context opts (:env context) context)
+             (cond-> {:polarity         polarity
+                      :background-color nil
+                      :detection-method (if polarity :prefers-color-scheme :none)
+                      :csi996-result    nil
+                      :csi996-supported false
+                      :osc11-supported  false
+                      :clitheme         nil}
+               theme-only? (dissoc :background-color))))
   (let [context    (normalize-context context)
         ;; An explicit nil (a config lookup that missed) means "not given".
         timeout-ms (sanitize-timeout-ms (if (nil? timeout-ms) default-timeout-ms timeout-ms))
@@ -1522,7 +1555,7 @@
                           :background-color rgb
                           :osc11-supported (some? rgb))]
     (merge (collect-context opts mock-env context)
-           (cond-> chain theme-only? (dissoc :background-color)))))
+           (cond-> chain theme-only? (dissoc :background-color))))))
 
 (defn background
   "Detect everything about the terminal's background: its dark/light polarity

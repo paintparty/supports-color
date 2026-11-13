@@ -2,6 +2,8 @@
 
 ## Relation your program and terminal
 
+**In ClojureScript, Node's builtins load at run time.** supports-color calls `process.getBuiltinModule` for `process`, `os`, `tty`, `child_process` and `fs`, and only when Node APIs exist, so a browser build never includes them. This needs Node 20.16+ or 22.3+. In a browser, nothing below applies: see [In browsers](api.md#in-browsers).
+
 **`profile` never touches the terminal.** It reads environment variables, the program's command-line arguments, and whether stdout, stderr and stdin are terminals.
 
 **`background` may talk to the terminal.** On macOS and Linux, when stdout or stderr is a terminal, it:

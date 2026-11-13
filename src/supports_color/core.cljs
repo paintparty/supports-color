@@ -1,5 +1,10 @@
 (ns supports-color.core
-  "Terminal color profile detection and background color querying (ClojureScript/Node.js).
+  "Terminal color profile detection and background color querying (ClojureScript).
+
+   On Node, Bun, Deno, and nbb this detects the terminal as on the JVM. In
+   browsers, profile returns level 3 with :runtime :host :browser, and theme
+   reads prefers-color-scheme. Node builtins load at run time with
+   process.getBuiltinModule (Node 20.16+ or 22.3+), and never in browsers.
 
    Ports the detection logic from:
    - chalk/supports-color  (Node.js env-var / flag heuristics)
@@ -25,12 +30,20 @@
    All public functions accept an optional :debug key in their options map.
    All public functions return :env and :runtime maps for debugging."
   (:require [clojure.string :as str]
-            [supports-color.common :as c]
-            ["process" :as process]
-            ["os" :as os]
-            ["tty" :as tty]
-            ["child_process" :as child-process]
-            ["fs" :as fs]))
+            [js-runtime-detection.core :as rt]
+            [supports-color.common :as c]))
+
+;; Node builtins load at run time, and only where js-runtime-detection finds
+;; Node APIs. No ns require names them, so a browser build never sees them.
+(defn- builtin [module-name]
+  (when rt/js-runtime-has-node-apis
+    (.getBuiltinModule js/process module-name)))
+
+(def ^:private ^js process (builtin "process"))
+(def ^:private ^js os (builtin "os"))
+(def ^:private ^js tty (builtin "tty"))
+(def ^:private ^js child-process (builtin "child_process"))
+(def ^:private ^js fs (builtin "fs"))
 
 ;; ---------------------------------------------------------------------------
 ;; Node.js terminal queries
@@ -270,7 +283,7 @@
 ;; Platform registration
 ;; ---------------------------------------------------------------------------
 
-(c/register-platform!
+(def ^:private node-adapter
  {:real-get-env       (fn [k] (aget (.-env process) k))
   :stdout-tty         (fn [] (.isatty tty 1))
   :stderr-tty         (fn [] (.isatty tty 2))
@@ -283,6 +296,45 @@
   :argv               (fn [] (vec (.-argv process)))
   :os-name            (fn [] (.-platform process))
   :query-terminal     query-terminal-node})
+
+(def ^:private no-terminal-adapter
+  "Runtimes without Node APIs: no env, no terminal, and no terminal query.
+   Without a :host, the host reports as :js and the level as 0."
+  {:real-get-env       (fn [_] nil)
+   :stdout-tty         (constantly false)
+   :stderr-tty         (constantly false)
+   :stdin-tty          (constantly false)
+   :platform           (constantly :unix)
+   :os-release         (constantly nil)
+   :argv               (constantly [])
+   :os-name            (constantly nil)
+   :query-terminal     (fn [_] nil)})
+
+(defn- prefers-dark?
+  "Whether the browser reports a dark color scheme preference, or nil without
+   matchMedia (web workers, for example)."
+  []
+  (when (exists? js/matchMedia)
+    (.-matches (js/matchMedia "(prefers-color-scheme: dark)"))))
+
+(def ^:private browser-adapter
+  "Browsers and web workers. Output goes to a dev console, which renders
+   truecolor."
+  (assoc no-terminal-adapter
+         :host         :browser
+         :prefers-dark prefers-dark?))
+
+(c/register-platform!
+ (cond rt/js-runtime-has-node-apis
+       node-adapter
+
+       (or rt/js-runtime-has-dom
+           (contains? #{"web-worker" "service-worker"} rt/js-runtime))
+       browser-adapter
+
+       ;; Cloudflare Workers without nodejs_compat, Fastly, and the like
+       :else
+       no-terminal-adapter))
 
 ;; ---------------------------------------------------------------------------
 ;; Public API re-exports

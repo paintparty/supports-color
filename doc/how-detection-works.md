@@ -2,6 +2,7 @@
 
 Color level (`supports-color.core/profile`) walks an ordered chain of checks, short-circuiting on a match:
 
+Browser dev console (level 3)<br>
 `CLI` flags (`--color`, `--no-color`, `--color=256`, etc.)<br>
 `NO_COLOR`<br>
 `FORCE_COLOR`<br>
@@ -21,6 +22,8 @@ Background (`supports-color.core/background`) tries, in order:
 4. `COLORFGBG` env var - coarse fallback.
 
 `supports-color.core/theme` runs the same chain. When step 1 decides the polarity, it sends no terminal query.
+
+In a browser, both skip this chain and read `prefers-color-scheme` instead.
 
 Steps 2 and 3 use the same terminal query. `background` sends three queries together, in one write:
 

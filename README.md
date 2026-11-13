@@ -58,9 +58,10 @@ Comparison with other libs from other languages that you may be familiar with:
 |---|---|---|---|
 | Language | Clojure dialects | JavaScript, Node | Go |
 | Color level detection (16, 256, truecolor) | ✓ | ✓ | ✓ |
-| Respects `NO_COLOR` | ✓ | ✕ | ✓ |
 | Terminal background color query via `OSC 11` | ✓ | ✕ | ✕ |
 | Terminal theme query via `CSI ? 996 n`| ✓ | ✕ | ✕ |
+| Respects `NO_COLOR` | ✓ | ✕ | ✓ |
+| Works in a web browser | ✓ | ✕ | ✕ |
 
 View the [full comparison matrix](doc/related-libraries.md#full-comparison-matrix), which shows more features and more libraries.
 
@@ -73,8 +74,17 @@ View the [full comparison matrix](doc/related-libraries.md#full-comparison-matri
 The library code itself uses nothing past Clojure 1.8
 and loads fine on 1.9. The stated floor is 1.10 only because the test tooling needs
 it (not the runtime). The test suite is verified against 1.10.3, 1.11.4, and
-1.12.5, verified with `bb test:compat`. Also runs on Babashka, Jolt, and ClojureScript
-(nbb/Node).
+1.12.5, verified with `bb test:compat`. Also runs on Babashka, Jolt, and ClojureScript.
+
+**ClojureScript on Node: Node 20.16+ or 22.3+.** supports-color loads Node's
+builtins at run time with `process.getBuiltinModule`, so a browser build never
+includes them. Verified with nbb and with shadow-cljs `:simple` and `:advanced`
+builds.
+
+**ClojureScript in browsers:** `profile` returns level 3, because browser dev
+consoles render truecolor, with `:runtime :host :browser`. `theme` and
+`background` read `prefers-color-scheme`. Verified with an `:advanced` build,
+`bb test:browser`.
 
 <br />
 
