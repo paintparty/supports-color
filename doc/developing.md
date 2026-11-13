@@ -44,4 +44,4 @@ Deploys to `io.github.paintparty/supports-color` on clojars.org.
 
 ## Regenerating git-deps.md
 
-This doc needs to be regenerated after a new release is tagged. Run `bb git-deps-docs`, commit regenerate `git-deps.md` and push to `main`. \[TODO - automate this].
+This doc needs to be regenerated after a new release is tagged. Run `bb docs:git-deps`, commit regenerate `git-deps.md` and push to `main`. \[TODO - automate this].

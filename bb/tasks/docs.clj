@@ -1,6 +1,7 @@
 (ns tasks.docs
   "Helpers for the docs:* tasks in bb.edn."
-  (:require [babashka.process :as p]
+  (:require [babashka.fs :as fs]
+            [babashka.process :as p]
             [clojure.string :as str]))
 
 (defn- sh
@@ -56,15 +57,17 @@
     (println "No tags yet, so README.md is unchanged. Rerun after tagging a release.")))
 
 (defn write-git-deps
-  "Regenerates docs/git-deps.md from docs/git-deps.template.md and the
-   latest tag. Uses HEAD if there are no tags yet."
-  []
+  "Regenerates the git deps doc at out-path (docs/git-deps.md, for example)
+   from bb/tasks/git-deps.template.md and the latest tag. Uses HEAD if there
+   are no tags yet."
+  [out-path]
   (let [tag     (latest-tag)
         sha     (sh "git rev-list -n 1" (or tag "HEAD"))
         url     (repo-url)
         project (last (str/split url #"/"))]
-    (spit "docs/git-deps.md"
-          (-> (slurp "docs/git-deps.template.md")
+    (fs/create-dirs (fs/parent out-path))
+    (spit out-path
+          (-> (slurp "bb/tasks/git-deps.template.md")
               (str/replace "{{PROJECT}}" project)
               (str/replace "{{LIB}}" (lib-name))
               (str/replace "{{URL}}" (str "\"" url "\""))
@@ -72,4 +75,4 @@
               (str/replace "{{SHA}}" (str "\"" sha "\""))))
     (when-not tag
       (println "No tags yet, so the SHA is from HEAD. Rerun after tagging a release."))
-    (println "Wrote docs/git-deps.md for" (or tag "HEAD") sha)))
+    (println "Wrote" out-path "for" (or tag "HEAD") sha)))

@@ -66,6 +66,6 @@
    :task (docs/update-readme)}
 
   docs:git-deps
-  {:doc  "Regenerate docs/git-deps.md from the latest tag.
+  {:doc  "Regenerate doc/git-deps.md from the latest tag.
           Uses HEAD if there are no tags yet."
-   :task (docs/write-git-deps)}}}
+   :task (docs/write-git-deps "doc/git-deps.md")}}}

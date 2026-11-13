@@ -104,7 +104,7 @@ Or import into your namespace:
 ### Consuming via git
 
 Using a tool without Maven support? See
-[Consuming supports-color as a git dependency](docs/git-deps.md).
+[Consuming supports-color as a git dependency](doc/git-deps.md).
 
 <br />
 
