@@ -48,7 +48,7 @@ For an orientation to terminology used in this readme, see the [supports-color g
 | Period           | Stage        | Release                                                                   |
 | ---------------- | ------------ | ------------------------------------------------------------------------- |
 | 2025 Oct         | Experimental | (Internal [Fireworks](https://github.com/paintparty/fireworks) namespace) |
-| 2026 Nov-present | Alpha        | 0.1.0                                                                     |
+| 2026 Nov-present | Alpha        | 0.1.1                                                                     |
 
 <br />
 
@@ -95,13 +95,13 @@ Add as a dependency to your project:
 Deps:
 
 ```clojure
-io.github.paintparty/supports-color {:mvn/version "0.1.0"}
+io.github.paintparty/supports-color {:mvn/version "0.1.1"}
 ```
 
 Leiningen:
 
 ```clojure
-[io.github.paintparty/supports-color "0.1.0"]
+[io.github.paintparty/supports-color "0.1.1"]
 ```
 
 Require it:

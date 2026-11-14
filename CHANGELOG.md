@@ -5,7 +5,7 @@ supports-color: Terminal color capability and background theme detection for Clo
 ## Unreleased
 
 
-## 0.1.0
+## 0.1.1
 
 
 ### Added
