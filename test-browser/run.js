@@ -9,6 +9,8 @@ const sandbox = {
   document: {},
   navigator: { userAgent: 'Mozilla/5.0 (Macintosh) Chrome/130' },
   setTimeout, clearTimeout,
+  // A page without cross-origin isolation has no SharedArrayBuffer.
+  SharedArrayBuffer: undefined,
 };
 if (scheme !== 'none') {
   sandbox.matchMedia = (q) => ({ matches: q === '(prefers-color-scheme: dark)' && scheme === 'dark' });
