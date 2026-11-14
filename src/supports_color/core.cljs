@@ -87,14 +87,16 @@
   (or @stty-override @resolved-stty))
 
 (def ^:private nap-cell
-  ;; Never notified, so Atomics.wait always runs to its timeout.
-  (js/Int32Array. (js/SharedArrayBuffer. 4)))
+  ;; Never notified, so Atomics.wait always runs to its timeout. Delayed, because
+  ;; a browser page without cross-origin isolation has no SharedArrayBuffer and
+  ;; would throw when this namespace loads.
+  (delay (js/Int32Array. (js/SharedArrayBuffer. 4))))
 
 (defn- nap!
   "Block this thread for `ms`, so an EAGAIN poll on the non-blocking fd does not
    spin hot."
   [ms]
-  (js/Atomics.wait nap-cell 0 0 ms))
+  (js/Atomics.wait @nap-cell 0 0 ms))
 
 (defn- run-stty
   "Runs `stty` with `args` and returns its stdout. Throws on a non-zero exit or
