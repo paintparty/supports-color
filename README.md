@@ -1,12 +1,14 @@
+<sub>Thanks to <a target="_blank" href="https://www.clojuriststogether.org/">Clojurists Together</a> for their generous support! An early phase of work (within Fireworks) was completed during the [2025 Q3 funding cycle](https://www.clojuriststogether.org/news/q3-2025-funding-announcement/#fireworks-jeremiah-coyle).</sub> 
+
 # supports-color
 
 **Terminal color capability and background theme detection for Clojure dialects**<br>
-<sub>Works with Clojure, ClojureScript, Babashka, and Jolt</sub>
+<sub>Works with Clojure, Babashka, ClojureScript, nbb, and Jolt</sub>
 
 <br/>
 <br/>
 
-The `color-supports` API supplies 3 data points:
+The **supports-color** API supplies 3 data points:
 
 - **Color level support**: none, basic (16 colors), 256 colors, or truecolor
 - **Background polarity**: dark, light, or unknown
@@ -29,7 +31,7 @@ The `color-supports` API supplies 3 data points:
  ...}
 
 
-;; Polarity only. No terminal query when CLITHEME is set.
+;; Polarity only.
 (sc/theme)
 => 
 {:polarity "dark"
@@ -54,7 +56,7 @@ For an orientation to terminology used in this readme, see the [supports-color g
 
 ## Quick comparison
 Comparison with other libs from other languages that you may be familiar with:
-|  | this library | [chalk/supports-color↗](https://github.com/chalk/supports-color) | [colorprofile↗](https://github.com/charmbracelet/colorprofile) |
+|  | This library | [chalk/supports-color↗](https://github.com/chalk/supports-color) | [colorprofile↗](https://github.com/charmbracelet/colorprofile) |
 |---|---|---|---|
 | Language | Clojure dialects | JavaScript, Node | Go |
 | Color level detection (16, 256, truecolor) | ✓ | ✓ | ✓ |
