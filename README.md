@@ -1,4 +1,4 @@
-<sub>Thanks to <a target="_blank" href="https://www.clojuriststogether.org/">Clojurists Together</a> for their generous support!<br>An early phase of work (within Fireworks) was completed during the [2025 Q3 funding cycle](https://www.clojuriststogether.org/news/q3-2025-funding-announcement/#fireworks-jeremiah-coyle).</sub> 
+<sub>Thanks to <a target="_blank" href="https://www.clojuriststogether.org/">Clojurists Together</a> for their generous support! An early phase of work on this lib (within Fireworks) was completed during the [2025 Q3 funding cycle](https://www.clojuriststogether.org/news/q3-2025-funding-announcement/#fireworks-jeremiah-coyle).</sub> 
 
 # supports-color
 
