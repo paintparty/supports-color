@@ -76,20 +76,13 @@ View the [full comparison matrix](doc/related-libraries.md#full-comparison-matri
 
 **Clojure 1.10 or newer**.
 
-The library code itself uses nothing past Clojure 1.8
-and loads fine on 1.9. The stated floor is 1.10 only because the test tooling needs
-it (not the runtime). The test suite is verified against 1.10.3, 1.11.4, and
-1.12.5, verified with `bb test:compat`. Also runs on Babashka, Jolt, and ClojureScript.
+Also runs on Babashka, Jolt, and ClojureScript.
 
-**ClojureScript on Node: Node 20.16+ or 22.3+.** supports-color loads Node's
-builtins at run time with `process.getBuiltinModule`, so a browser build never
-includes them. Verified with nbb and with shadow-cljs `:simple` and `:advanced`
-builds.
+**ClojureScript on Node: Node 20.16+ or 22.3+.** 
+**supports-color** loads Node's builtins at run time with `process.getBuiltinModule`, so a browser build never includes them. Verified with nbb and with shadow-cljs `:simple` and `:advanced` builds.
 
-**ClojureScript in browsers:** `profile` returns level 3, because browser dev
-consoles render truecolor, with `:runtime :host :browser`. `theme` and
-`background` read `prefers-color-scheme`. Verified with an `:advanced` build,
-`bb test:browser`.
+**ClojureScript in browsers:**
+`profile` returns level 3, because browser dev consoles render truecolor, with `:runtime :host :browser`. `theme` and `background` read `prefers-color-scheme`. Verified with an `:advanced` build, `bb test:browser`.
 
 <br />
 
@@ -143,7 +136,7 @@ The complete maps that `profile` and `background` return, every key included, sh
 The order of checks behind the color level and the background polarity, and how the terminal query works.
 
 **[More details about how supports-color works](doc/more-details.md)**<br>
-What supports-color does to your program and terminal: the subprocesses it starts, the environment variables and flags it reads, timeouts, when the terminal query runs, and how to turn it off.
+How the api relates to your program and terminal: the subprocesses it starts, the environment variables and flags it reads, timeouts, when the terminal query runs, and how to turn it off.
 
 **[Developing](doc/developing.md)**<br>
 Running the tests on each runtime, building and releasing, and regenerating the git-deps docs.

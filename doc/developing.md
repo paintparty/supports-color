@@ -1,5 +1,10 @@
 # Developing
 
+The library code itself uses nothing past Clojure 1.8
+and loads fine on 1.9. The stated floor is 1.10 only because the test tooling needs
+it (not the runtime). The test suite is verified against 1.10.3, 1.11.4, and
+1.12.5, verified with `bb test:compat`. 
+
 ## Running tests
 
 ```
