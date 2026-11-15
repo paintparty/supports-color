@@ -1,5 +1,5 @@
 (ns tasks.docs
-  "Helpers for the docs:* tasks in bb.edn."
+  "Helpers for the tag-release task in bb.edn."
   (:require [babashka.fs :as fs]
             [babashka.process :as p]
             [clojure.string :as str]))
@@ -76,3 +76,57 @@
     (when-not tag
       (println "No tags yet, so the SHA is from HEAD. Rerun after tagging a release."))
     (println "Wrote" out-path "for" (or tag "HEAD") sha)))
+
+(defn- build-version
+  "The version string from `(def version \"...\")` in build.clj."
+  []
+  (second (re-find #"[(]def version \"([^\"]+)\"[)]" (slurp "build.clj"))))
+
+(defn- changelog-section
+  "The body of the `## <version>` section of CHANGELOG.md, without leading
+   or trailing blank lines. The section ends at the next level-2 heading, or
+   at the end of the file when it is the last section. Returns nil if there
+   is no such heading or the body is blank."
+  [version]
+  (let [heading (str "## " version)]
+    (->> (str/split-lines (slurp "CHANGELOG.md"))
+         (drop-while #(not= heading (str/trimr %)))
+         rest
+         (take-while #(not (re-find #"^## " %)))
+         (str/join "\n")
+         str/trim
+         not-empty)))
+
+(defn tag-release
+  "Creates annotated tag v<version>, with the version from build.clj and the
+   matching CHANGELOG.md section as the tag message. Then updates the
+   version numbers in README.md and regenerates doc/git-deps.md if it
+   exists. Does not push or commit."
+  []
+  (let [version (build-version)
+        tag     (str "v" version)]
+    (when-not version
+      (throw (ex-info "No (def version \"...\") found in build.clj." {})))
+    (when (not-empty (sh "git status --porcelain"))
+      (throw (ex-info "The working tree has uncommitted changes. Commit them first, since the tag goes on HEAD." {})))
+    (when (not-empty (sh "git rev-parse -q --verify" (str "refs/tags/" tag)))
+      (throw (ex-info (str "Tag " tag " already exists.") {:tag tag})))
+    (let [section (changelog-section version)
+          _       (when-not section
+                    (throw (ex-info (str "CHANGELOG.md has no \"## " version "\" section, or the section is empty.")
+                                    {:version version})))
+          message (str tag "\n\n" section "\n")
+          tmp     (fs/create-temp-file {:prefix "tag-message" :suffix ".txt"})]
+      (println (str "Tag message:\n\n" message))
+      (try
+        (spit (str tmp) message)
+        ;; verbatim keeps lines starting with #, such as ### Added
+        (p/shell "git tag -a" tag "--cleanup=verbatim" "-F" (str tmp))
+        (finally (fs/delete-if-exists tmp)))
+      (println "Created tag" tag "on" (sh "git rev-parse --short HEAD"))
+      (update-readme)
+      (if (fs/exists? "doc/git-deps.md")
+        (write-git-deps "doc/git-deps.md")
+        (println "No doc/git-deps.md, so skipped it."))
+      (println (str "\nNext: review and commit README.md and doc/git-deps.md, then run\n"
+                    "  git push origin " tag)))))
