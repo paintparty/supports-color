@@ -125,8 +125,11 @@
         (finally (fs/delete-if-exists tmp)))
       (println "Created tag" tag "on" (sh "git rev-parse --short HEAD"))
       (update-readme)
-      (if (fs/exists? "doc/git-deps.md")
-        (write-git-deps "doc/git-deps.md")
-        (println "No doc/git-deps.md, so skipped it."))
-      (println (str "\nNext: review and commit README.md and doc/git-deps.md, then run\n"
-                    "  git push origin " tag)))))
+      (let [git-deps? (fs/exists? "doc/git-deps.md")]
+        (if git-deps?
+          (write-git-deps "doc/git-deps.md")
+          (println "No doc/git-deps.md, so skipped it."))
+        (println (str "\nNext: review and commit README.md"
+                      (when git-deps? " and doc/git-deps.md")
+                      ", then run:\n"
+                      "git push origin " tag))))))
