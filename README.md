@@ -127,22 +127,22 @@ Using a tool without Maven support? See
 ## Documentation
 
 **[API](doc/api.md)**<br>
-The public api.
+The public API.
 
 **[Full output reference](doc/full-output-reference.md)**<br>
-The complete maps that `profile` and `background` return, every key included, shown for a truecolor terminal with a dark theme.
+Example return values for `profile` and `background`.
 
 **[How detection works](doc/how-detection-works.md)**<br>
-The order of checks behind the color level and the background polarity, and how the terminal query works.
+Explains how the terminal query works, and outlines the pipeline of checks that determines the color level and the background polarity, 
 
 **[More details about how supports-color works](doc/more-details.md)**<br>
 How the api relates to your program and terminal: the subprocesses it starts, the environment variables and flags it reads, timeouts, when the terminal query runs, and how to turn it off.
 
 **[Developing](doc/developing.md)**<br>
-Running the tests on each runtime, building and releasing, and regenerating the git-deps docs.
+Running the tests on each runtime, building and releasing, and regenerating the documentation.
 
 **[Related libraries](doc/related-libraries.md)**<br>
-The libraries supports-color builds on, ports of supports-color in other languages, and a full feature comparison.
+The libraries supports-color builds on, ports of the og chalk/supports-color in other languages, and a full feature comparison.
 
 <br />
 
@@ -152,7 +152,7 @@ Issues for bugs, improvements, or features are very welcome.
 
 Please file an issue for discussion before starting or submitting a PR.
 
-If you want to submit a PR against an open issue, start by dropping a message in the open issue before doing any work or issuing a PR, in order to initiate human communication, and make sure everyone is on the same page.
+If you want to submit a PR against an open issue, start by dropping a message in the open issue before doing any work or issuing a PR, in order to initiate human communication, and make sure everyone involved is on the same page.
 
 <br />
 

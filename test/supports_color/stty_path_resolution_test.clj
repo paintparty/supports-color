@@ -20,6 +20,7 @@
    The shim-on-PATH case needs the controlling-terminal pty child and is skipped
    where no pty (or no absolute stty) is available."
   (:require [clojure.java.io :as io]
+            [clojure.string :as str]
             [clojure.test :refer [deftest is testing]]
             [supports-color.common :as c]
             [supports-color.harness :as h]
@@ -78,8 +79,9 @@
                               "/run/current-system/profile/bin/stty"
                               "/data/data/com.termux/files/usr/bin/stty"])
             "the standard, NixOS, Guix and Termux locations are all listed")
-        (is (every? #(.isAbsolute (io/file ^String %)) cs)
-            "no candidate is a bare name or a relative path"))
+        ;; The candidates are Unix paths even when the test runs on Windows.
+        (is (every? #(str/starts-with? % "/") cs)
+            "each candidate is an absolute Unix path"))
       (is false "supports-color.common/stty-candidates is not defined yet"))))
 
 (deftest stty-env-override-is-ignored

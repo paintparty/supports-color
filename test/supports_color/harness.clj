@@ -67,8 +67,11 @@
 
 (defn- nbb-ok? []
   (try
-    (let [p (-> (ProcessBuilder. ["npx" "--yes" "nbb" "--version"])
-                (.redirectErrorStream true))
+    ;; --version skips nbb.edn. Evaluating a form checks that nbb can load
+    ;; the project's dependencies, which can require bb on a fresh runner.
+    (let [p (-> (ProcessBuilder. ["npx" "--yes" "nbb" "-e" "nil"])
+                (.redirectErrorStream true)
+                (.redirectOutput java.lang.ProcessBuilder$Redirect/DISCARD))
           proc (.start p)]
       (.waitFor proc)
       (zero? (.exitValue proc)))
@@ -78,7 +81,7 @@
 
 (defn nbb-available?
   "True when the Node scenario runner can be driven here (Unix + nbb resolvable
-   via npx). The probe is memoized since `npx nbb --version` is slow."
+   via npx with project dependencies loadable). The probe is memoized."
   []
   @nbb-cap)
 
